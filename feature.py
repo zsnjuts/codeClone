@@ -85,10 +85,29 @@ def extract_io(ast):
     return [directin, loopin, condin, directout, loopout, condout]
 
 
+def extract_text(node):
+    """提取代码中所有字符串(包括无参数printf)和单个字符"""
+    strsum, charsum = 0, 0
+    if node.attr_names.__contains__('type'):
+        if node.type == 'string' and not ('%' in node.value):
+            string = node.value.replace('"', '')
+            print('string:'+string)
+            strsum += sum([ord(c) for c in string])
+        elif node.type == 'char':
+            string = node.value.replace("'", "")
+            print('char:'+string)
+            charsum += ord(string)
+    for _, child in node.children():
+        sh, ch = extract_text(child)
+        strsum += sh
+        charsum += ch
+    return [strsum, charsum]
+
+
 def feature_extract(filename):
     """提取给定文件的特征向量"""
     ast = parse_file(filename, use_cpp=False)
-    return extract_io(ast)
+    return extract_io(ast)+extract_text(ast)
 
 
 if __name__ == '__main__':

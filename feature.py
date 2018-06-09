@@ -104,10 +104,20 @@ def extract_text(node):
     return [strsum, charsum]
 
 
+def extract_iter(node):
+    """最大循环深度"""
+    depth = 0
+    if isinstance(node, For) or isinstance(node, While) or isinstance(node, DoWhile):
+        depth += 1
+    if len(node.children()):
+        depth += max([extract_iter(child) for _, child in node.children()])
+    return depth
+
+
 def feature_extract(filename):
     """提取给定文件的特征向量"""
     ast = parse_file(filename, use_cpp=False)
-    return extract_io(ast)+extract_text(ast)
+    return extract_io(ast)+extract_text(ast)+[extract_iter(ast)]
 
 
 if __name__ == '__main__':

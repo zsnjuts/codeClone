@@ -143,7 +143,7 @@ def extract_calc(node):
 
 def feature_extract(filename):
     """提取给定文件的特征向量"""
-    print(filename)
+    # print(filename)
     ast = parse_file(filename, use_cpp=False)
     return extract_io(ast)+extract_text(ast)+[extract_iter(ast)]+extract_calc(ast)
 

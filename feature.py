@@ -34,7 +34,6 @@ def extract_stdin(node):
     # scanf数量
     if isinstance(node, FuncCall) and node.name.name == 'scanf':
         directin += len(node.args.children())-1
-        print(node.args.exprs[0].value+str(len(node.args.children())-1))
     # cin数量
     if is_cin(node):
         directin += 1
@@ -59,7 +58,6 @@ def extract_stdout(node):
     # printf数量
     if isinstance(node, FuncCall) and node.name.name == 'printf':
         directout += len(node.args.children()) - 1
-        print(node.args.exprs[0].value + str(len(node.args.children()) - 1))
     # cout数量
     if is_cout(node):
         directout += 1
@@ -91,11 +89,20 @@ def extract_text(node):
     if node.attr_names.__contains__('type'):
         if node.type == 'string' and not ('%' in node.value):
             string = node.value.replace('"', '')
-            print('string:'+string)
+            # print('string:'+string)
             strsum += sum([ord(c) for c in string])
         elif node.type == 'char':
             string = node.value.replace("'", "")
-            print('char:'+string)
+            if len(string) > 1:
+                if string[1] == 'n':
+                    string = '\n'
+                elif string[1] == 'r':
+                    string = '\r'
+                elif string[1] == 't':
+                    string = '\t'
+                elif string[1] == '0':
+                    string = '\0'
+            # print('char:'+string)
             charsum += ord(string)
     for _, child in node.children():
         sh, ch = extract_text(child)
@@ -114,11 +121,32 @@ def extract_iter(node):
     return depth
 
 
+def extract_calc(node):
+    """各种运算符出现次数[+ - * / %]"""
+    typecount = [0]*5
+    if isinstance(node, BinaryOp):
+        if node.op == '+':
+            typecount[0] += 1
+        elif node.op == '-':
+            typecount[1] += 1
+        elif node.op == '*':
+            typecount[2] += 1
+        elif node.op == '/':
+            typecount[3] += 1
+        elif node.op == '%':
+            typecount[4] += 1
+    for _, child in node.children():
+        tpcnt = extract_calc(child)
+        typecount = [typecount[i]+tpcnt[i] for i in range(0, len(typecount))]
+    return typecount
+
+
 def feature_extract(filename):
     """提取给定文件的特征向量"""
+    print(filename)
     ast = parse_file(filename, use_cpp=False)
-    return extract_io(ast)+extract_text(ast)+[extract_iter(ast)]
+    return extract_io(ast)+extract_text(ast)+[extract_iter(ast)]+extract_calc(ast)
 
 
 if __name__ == '__main__':
-    print(feature_extract('test.txt'))
+    print(feature_extract('dataset/train/5593/a0a642ee43d44b34.txt'))

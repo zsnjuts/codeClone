@@ -5,22 +5,16 @@ from sampling import *
 from feature import *
 
 
-def learning(samplepaths, labels, testinpaths):
+def learning(samples, labels, testin):
     """learn"""
     clf = svm.SVC()
-    samples = [feature_extract(path) for path in samplepaths]
-    testin = [feature_extract(path) for path in testinpaths]
     clf.fit(samples, labels)
-    testout = clf.predict(testin)
-    # testout = [0 for i in range(0, len(testin))]
-    return testout
+    return clf.predict(testin)
 
 
 if __name__ == '__main__':
     posnumber, negnumber = 50, 50
-    pos, neg = get_training_samples(posnumber, negnumber)
-    poslabels = [1 for i in range(0, posnumber)]
-    neglabels = [0 for i in range(0, negnumber)]
-    tin = get_test_samples()
-    tout = learning(pos+neg, poslabels+neglabels, tin)
-    set_test_result(tout)
+    trainsamples, trainlabels = get_training_samples(posnumber, negnumber)
+    testsamples = get_test_samples()
+    testlabels = learning(trainsamples, trainlabels, testsamples)
+    set_test_result(testlabels)

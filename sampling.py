@@ -5,8 +5,28 @@ import os
 import random
 import csv
 from collections import namedtuple
+import pickle
+from feature import feature_extract
+import functools
 
 
+def cache(path):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kw):
+            if os.path.exists(path):
+                with open(path, 'rb') as f:
+                    return pickle.load(f)
+            else:
+                train_dataset = func(*args, **kw)
+                with open(path, 'wb') as f:
+                    pickle.dump(train_dataset, f)
+                return train_dataset
+        return wrapper
+    return decorator
+
+
+@cache('dataset/train_dataset')
 def get_training_samples(posNumber, negNumber):
     """sampling filenames from train set
     posNumber为正例数量，negNumber为负例数量
@@ -25,22 +45,25 @@ def get_training_samples(posNumber, negNumber):
 
     neg = []  # 负例
     for i in range(0, negNumber):
-        type_A = random.randint(0, len(type_dirs)-1)  # 类别A：目录A
-        txtsA = os.listdir('dataset/train/'+type_dirs[type_A])
-        type_B = random.randint(0, len(type_dirs)-1)  # 类别B：目录B
-        txtsB = os.listdir('dataset/train/'+type_dirs[type_B])
-        while type_A == type_B:
-            type_B = random.randint(0, len(type_dirs)-1)
-        a = random.randint(0, len(txtsA)-1)  # 从目录A随机选一个样本a
-        b = random.randint(0, len(txtsB)-1)  # 从目录B随机选一个样本b
-        neg.append(('dataset/train/'+type_dirs[type_A]+'/'+txtsA[a], 'dataset/train/'+type_dirs[type_B]+'/'+txtsB[b]))
+        # 随机选一个目录1，在目录1中随机选一个文件
+        type1 = random.randint(0, len(type_dirs)-1)
+        txts1 = os.listdir('dataset/train/'+type_dirs[type1])
+        a = random.randint(0, len(txts1) - 1)
+        # 随机选一个目录2，在目录2中随机选一个文件
+        type2 = random.randint(0, len(type_dirs)-1)
+        while type1 == type2:
+            type2 = random.randint(0, len(type_dirs)-1)
+        txts2 = os.listdir('dataset/train/' + type_dirs[type2])
+        b = random.randint(0, len(txts2)-1)  # 从目录B随机选一个样本b
+        neg.append(('dataset/train/'+type_dirs[type1]+'/'+txts1[a], 'dataset/train/'+type_dirs[type2]+'/'+txts2[b]))
 
-    return pos, neg
+    return [feature_extract(a)+feature_extract(b) for a, b in pos+neg], [1]*len(pos)+[0]*len(neg)
 
 headings = []
 idpairs = []
 
 
+@cache('dataset/test_samples')
 def get_test_samples():
     """获取test集中的所有样本"""
     global headings, idpairs
@@ -52,8 +75,8 @@ def get_test_samples():
         id1_id2 = Row(*r).id1_id2
         id1, id2 = id1_id2.split('_')
         idpairs.append(id1_id2)
-        samples.append(('dataset/test/'+id1, 'dataset/test/'+id2))
-    return samples
+        samples.append(('dataset/test/'+id1+'.txt', 'dataset/test/'+id2+'.txt'))
+    return [feature_extract(a)+feature_extract(b) for a, b in samples]
 
 
 def set_test_result(testout):

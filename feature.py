@@ -2,6 +2,8 @@
 """提取特征向量"""
 from pycparser import parse_file
 from pycparser.c_ast import *
+import os
+import pickle
 
 
 def is_cin(node):
@@ -144,8 +146,19 @@ def extract_calc(node):
 def feature_extract(filename):
     """提取给定文件的特征向量"""
     # print(filename)
-    ast = parse_file(filename, use_cpp=False)
-    return extract_io(ast)+extract_text(ast)+[extract_iter(ast)]+extract_calc(ast)
+    # ast = parse_file(filename, use_cpp=False)
+    paths = filename.split('/')
+    name = ''
+    if paths[1] == 'test':
+        name = 'dataset/test_ast/'+paths[-1]+'.ast'
+    elif paths[1] == 'train':
+        name = 'dataset/train_ast/'+paths[-2]+'/'+paths[-1]+'.ast'
+    if os.path.exists(name):
+        with open(name, 'rb') as f:
+            ast = pickle.load(f)
+        return extract_io(ast)+extract_text(ast)+[extract_iter(ast)]+extract_calc(ast)
+    else:
+        raise Exception('ast not cached')
 
 
 if __name__ == '__main__':

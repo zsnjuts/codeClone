@@ -8,10 +8,11 @@ from collections import namedtuple
 import pickle
 from feature import feature_extract
 import functools
-from pycparser import plyparser
+from pycparser import parse_file
 
 
 def cache(path):
+    """为函数运行结果生成cache"""
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kw):
@@ -28,7 +29,7 @@ def cache(path):
     return decorator
 
 
-@cache('dataset/train_filepairs')
+@cache('dataset/train_filepairs_p20n20')
 def get_training_filepairs(posnumber, negnumber):
     """生成训练集的文件名对"""
     type_dirs = os.listdir('dataset/train')
@@ -62,7 +63,7 @@ def get_training_filepairs(posnumber, negnumber):
     return pos, neg
 
 
-@cache('dataset/train_dataset')
+@cache('dataset/train_dataset_p20n20')
 def get_training_samples(posnumber, negnumber):
     """生成训练样本"""
     pos, neg = get_training_filepairs(posnumber, negnumber)
@@ -74,7 +75,7 @@ def get_training_samples(posnumber, negnumber):
         try:
             fa, fb = feature_extract(a), feature_extract(b)
         except Exception as err:  # 出现错误，则跳过此样本
-            print(err)
+            print('Error:'+str(err))
             continue
         samples.append(feature_extract(a)+feature_extract(b))
     posnum = len(samples)  # 由于中间有的训练集存在语法错误，所以可能生成的samples与pos不相等
@@ -121,8 +122,37 @@ def set_test_result(testout):
     fcsv.writerow(headings)
     fcsv.writerows(rows)
 
+def gen_train_ast():
+    """生成训练集的AST"""
+    for dr in os.listdir('dataset/train/'):
+        print('generating '+dr+'...')
+        os.makedirs('dataset/train_ast/'+dr)
+        for file in os.listdir('dataset/train/'+dr):
+            with open('dataset/train_ast/'+dr+'/'+file+'.ast', 'wb') as f:
+                try:
+                    pickle.dump(parse_file('dataset/train/' + dr + '/' + file), f)
+                except Exception as err:
+                    print(err)
+                    continue
+
+
+def gen_test_ast():
+    """生成测试集的AST"""
+    for file in os.listdir('dataset/test/'):
+        with open('dataset/test_ast/'+file+'.ast', 'wb') as f:
+            print('generating '+file)
+            try:
+                pickle.dump(parse_file('dataset/test/' + file), f)
+            except Exception as err:
+                print(err)
+                continue
 
 if __name__ == '__main__':
-    post, negt = get_training_samples(5, 5)
-    print(post)
-    print(negt)
+    with open('dataset/train_dataset_p5n5', 'rb') as f:
+        samples5, labels5 = pickle.load(f)
+    with open('dataset/train_dataset_p15n15', 'rb') as f:
+        samples15, labels15 = pickle.load(f)
+    samples = samples5+samples15
+    labels = labels5+labels15
+    with open('dataset/train_dataset_p20n20', 'wb') as f:
+        pickle.dump((samples, labels), f)

@@ -25,7 +25,7 @@ def learning(samples, labels, testin):
 
 
 if __name__ == '__main__':
-    posnumber, negnumber = 150000, 150000
+    posnumber, negnumber = 200000, 200000
     trainsamples, trainlabels = get_training_samples(posnumber, negnumber)
     testsamples = get_test_samples()
     # learning(trainsamples, trainlabels, testsamples)

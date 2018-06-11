@@ -124,8 +124,8 @@ def extract_iter(node):
 
 
 def extract_calc(node):
-    """各种运算符出现次数[+ - * / %]"""
-    typecount = [0]*5
+    """各种运算符出现次数[+ - * / % == != < > <= >= ++]"""
+    typecount = [0]*14
     if isinstance(node, BinaryOp):
         if node.op == '+':
             typecount[0] += 1
@@ -137,10 +137,45 @@ def extract_calc(node):
             typecount[3] += 1
         elif node.op == '%':
             typecount[4] += 1
+        elif node.op == '==':
+            typecount[5] += 1
+        elif node.op == '!=':
+            typecount[6] += 1
+        elif node.op == '<':
+            typecount[7] += 1
+        elif node.op == '>':
+            typecount[8] += 1
+        elif node.op == '<=':
+            typecount[9] += 1
+        elif node.op == '>=':
+            typecount[10] += 1
+    elif isinstance(node, UnaryOp):
+        if node.op == 'p++':
+            typecount[11] += 1
+    elif isinstance(node, ArrayRef):
+        typecount[12] += 1
+    elif isinstance(node, StructRef):
+        typecount[13] +=1
     for _, child in node.children():
         tpcnt = extract_calc(child)
         typecount = [typecount[i]+tpcnt[i] for i in range(0, len(typecount))]
     return typecount
+
+
+def extract_arr(node):
+    """统计申请数组的最大第一维大小"""
+    size = 0
+    if isinstance(node, ArrayDecl):
+        if isinstance(node.dim, Constant):
+            size = int(node.dim.value)
+        else:
+            print('dim is not constant')
+    elif isinstance(node, Struct):  # 避免Struct定义中的数组影响结果
+        return 0
+
+    for _, child in node.children():
+        size = max(size, extract_arr(child))
+    return size
 
 
 def feature_extract(filename):
@@ -156,10 +191,10 @@ def feature_extract(filename):
     if os.path.exists(name):
         with open(name, 'rb') as f:
             ast = pickle.load(f)
-        return extract_io(ast)+extract_text(ast)+[extract_iter(ast)]+extract_calc(ast)
+        return extract_io(ast)+extract_text(ast)+[extract_iter(ast)]+extract_calc(ast)+[extract_arr(ast)]
     else:
         raise Exception('ast not cached')
 
 
 if __name__ == '__main__':
-    print(feature_extract('dataset/train/5593/a0a642ee43d44b34.txt'))
+    print(feature_extract('dataset/train/5f10/3f4366724a1542ea.txt'))

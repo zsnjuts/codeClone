@@ -124,8 +124,8 @@ def extract_iter(node):
 
 
 def extract_calc(node):
-    """各种运算符出现次数[+ - * / % == != < > <= >= ++]"""
-    typecount = [0]*14
+    """各种运算符出现次数[+ - * / % ++]"""
+    typecount = [0]*5
     if isinstance(node, BinaryOp):
         if node.op == '+':
             typecount[0] += 1
@@ -137,25 +137,6 @@ def extract_calc(node):
             typecount[3] += 1
         elif node.op == '%':
             typecount[4] += 1
-        elif node.op == '==':
-            typecount[5] += 1
-        elif node.op == '!=':
-            typecount[6] += 1
-        elif node.op == '<':
-            typecount[7] += 1
-        elif node.op == '>':
-            typecount[8] += 1
-        elif node.op == '<=':
-            typecount[9] += 1
-        elif node.op == '>=':
-            typecount[10] += 1
-    elif isinstance(node, UnaryOp):
-        if node.op == 'p++':
-            typecount[11] += 1
-    elif isinstance(node, ArrayRef):
-        typecount[12] += 1
-    elif isinstance(node, StructRef):
-        typecount[13] +=1
     for _, child in node.children():
         tpcnt = extract_calc(child)
         typecount = [typecount[i]+tpcnt[i] for i in range(0, len(typecount))]
@@ -163,19 +144,36 @@ def extract_calc(node):
 
 
 def extract_arr(node):
-    """统计申请数组的最大第一维大小"""
+    """统计申请数组的大小"""
     size = 0
     if isinstance(node, ArrayDecl):
         if isinstance(node.dim, Constant):
-            size = int(node.dim.value)
-        else:
-            print('dim is not constant')
+            try:
+                size = int(node.dim.value)
+            except ValueError as err:
+                size = ord(node.dim.value.replace("'", ""))
+        # else:
+        #     print('dim is not constant')
     elif isinstance(node, Struct):  # 避免Struct定义中的数组影响结果
         return 0
 
     for _, child in node.children():
         size = max(size, extract_arr(child))
     return size
+
+
+def extract_constant(node):
+    """统计代码中所有常量之和"""
+    sm = 0
+    if isinstance(node, Constant):
+        try:
+            sm += int(node.value)
+        except ValueError as err:
+            pass
+
+    for _, child in node.children():
+        sm += extract_constant(child)
+    return sm
 
 
 def feature_extract(filename):
@@ -191,10 +189,21 @@ def feature_extract(filename):
     if os.path.exists(name):
         with open(name, 'rb') as f:
             ast = pickle.load(f)
-        return extract_io(ast)+extract_text(ast)+[extract_iter(ast)]+extract_calc(ast)+[extract_arr(ast)]
+        return extract_io(ast) + extract_text(ast) + [extract_iter(ast)]\
+            + extract_calc(ast) #+ [extract_constant(ast)]
     else:
         raise Exception('ast not cached')
 
 
+def get_sample_feature(file1, file2):
+    """生成文件对样本特征"""
+    f1 = feature_extract(file1)
+    f2 = feature_extract(file2)
+    return [abs(f1[i]-f2[i]) for i in range(len(f1))]
+
+
 if __name__ == '__main__':
-    print(feature_extract('dataset/train/5f10/3f4366724a1542ea.txt'))
+    print(feature_extract('dataset/train/1a4d/0bd9a05fe6914906.txt'))
+    # import profile
+    # profile.run(
+    #     "get_sample_feature('dataset/train/0ae1/0ade50fef00347e7.txt', 'dataset/train/1a4d/0bd9a05fe6914906.txt')")

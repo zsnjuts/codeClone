@@ -6,7 +6,7 @@ import random
 import csv
 from collections import namedtuple
 import pickle
-from feature import feature_extract
+from feature import get_sample_feature
 import functools
 from pycparser import parse_file
 
@@ -29,7 +29,7 @@ def cache(path):
     return decorator
 
 
-@cache('dataset/train_filepairs_p20n20')
+@cache('dataset/train_filepairs_p5n50')
 def get_training_filepairs(posnumber, negnumber):
     """生成训练集的文件名对"""
     type_dirs = os.listdir('dataset/train')
@@ -63,7 +63,7 @@ def get_training_filepairs(posnumber, negnumber):
     return pos, neg
 
 
-@cache('dataset/train_dataset_p20n20')
+@cache('dataset/train_dataset_p5n50')
 def get_training_samples(posnumber, negnumber):
     """生成训练样本"""
     pos, neg = get_training_filepairs(posnumber, negnumber)
@@ -73,21 +73,21 @@ def get_training_samples(posnumber, negnumber):
     for i, (a, b) in enumerate(pos):
         print(str(i+1)+r'/'+str(posnumber+negnumber)+':'+a+' - '+b)
         try:
-            fa, fb = feature_extract(a), feature_extract(b)
+            sample = get_sample_feature(a, b)
         except Exception as err:  # 出现错误，则跳过此样本
             print('Error:'+str(err))
             continue
-        samples.append(feature_extract(a)+feature_extract(b))
+        samples.append(sample)
     posnum = len(samples)  # 由于中间有的训练集存在语法错误，所以可能生成的samples与pos不相等
     # 生成负例
     for i, (a, b) in enumerate(neg):
         print(str(posnumber+i+1) + r'/' + str(posnumber+negnumber) + ':' + a + ' - ' + b)
         try:
-            fa, fb = feature_extract(a), feature_extract(b)
+            sample = get_sample_feature(a, b)
         except Exception as err:  # 出现错误，则跳过此样本
             print(err)
             continue
-        samples.append(feature_extract(a) + feature_extract(b))
+        samples.append(sample)
     negnum = len(samples) - posnum
     labels = [1]*posnum + [0]*negnum
     print(str(len(samples))+' samples generated')
@@ -101,11 +101,13 @@ def get_test_samples():
     headings = next(fcsv)
     Row = namedtuple('Row', headings)
     samples = []
-    for r in fcsv:
+    for i, r in enumerate(fcsv):
         id1_id2 = Row(*r).id1_id2
         id1, id2 = id1_id2.split('_')
-        samples.append(('dataset/test/'+id1+'.txt', 'dataset/test/'+id2+'.txt'))
-    return [feature_extract(a)+feature_extract(b) for a, b in samples]
+        file1, file2 = 'dataset/test/'+id1+'.txt', 'dataset/test/'+id2+'.txt'
+        print(str(i)+'/200000:'+file1+' - '+file2)
+        samples.append(get_sample_feature(file1, file2))
+    return samples
 
 
 def set_test_result(testout):
@@ -121,6 +123,7 @@ def set_test_result(testout):
     fcsv = csv.writer(open('dataset/test_result.csv', 'w', newline=''))
     fcsv.writerow(headings)
     fcsv.writerows(rows)
+
 
 def gen_train_ast():
     """生成训练集的AST"""
@@ -147,12 +150,37 @@ def gen_test_ast():
                 print(err)
                 continue
 
+
+def merge_ast():
+    """合并train_ast和test_ast目录下的ast成为一个对象，但事实证明这样做不可行，因为ast_dict太大了"""
+    ast_dict = {}
+    for dr in os.listdir('dataset/train_ast'):
+        for file in os.listdir('dataset/train_ast/'+dr+'/'):
+            print('dataset/train_ast/'+dr+'/'+file)
+            try:
+                with open('dataset/train_ast/'+dr+'/'+file, 'rb') as f:
+                    ast_dict['dataset/train_ast/'+dr+'/'+file] = pickle.load(f)
+            except EOFError as err:
+                print(err)
+    for file in os.listdir('dataset/test_ast'):
+        print('dataset/test_ast'+file)
+        with open('dataset/test_ast/'+file, 'rb') as f:
+            ast_dict['dataset/test_ast/'+file] = pickle.load(f)
+    with open('dataset/ast_dict', 'wb') as f:
+        pickle.dump(ast_dict, f)
+
+
+def merge_joint_samples(testsamples):
+    """将fa+fa合并为[abs(fa-fb)]，好像实现有错"""
+    ntestsamples = []
+    nlen = len(testsamples[0])/2
+    for sample in testsamples:
+        nsample = [0] * nlen
+        for i in range(0, nlen):
+            nsample[i] = abs(sample[i] - sample[nlen + i])
+        ntestsamples.append(nsample)
+    return ntestsamples
+
+
 if __name__ == '__main__':
-    with open('dataset/train_dataset_p5n5', 'rb') as f:
-        samples5, labels5 = pickle.load(f)
-    with open('dataset/train_dataset_p15n15', 'rb') as f:
-        samples15, labels15 = pickle.load(f)
-    samples = samples5+samples15
-    labels = labels5+labels15
-    with open('dataset/train_dataset_p20n20', 'wb') as f:
-        pickle.dump((samples, labels), f)
+    merge_ast()

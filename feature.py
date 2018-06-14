@@ -176,6 +176,72 @@ def extract_constant(node):
     return sm
 
 
+def extract_type(node):
+    """分别统计循环和分支的数目"""
+    typecount = [0]*2
+    if isinstance(node, Break) or isinstance(node, Continue) \
+       or isinstance(node, Case) or isinstance(node, Default) \
+       or isinstance(node, If):
+        typecount[0] += 1
+    elif isinstance(node, DoWhile) or isinstance(node, For) or isinstance(node, While):
+        typecount[1] += 1
+
+    for _, child in node.children():
+        tpcnt = extract_type(child)
+        typecount = [typecount[i]+tpcnt[i] for i in range(0, len(typecount))]
+    return typecount
+
+
+def extract_basic(node):
+    basiccount = [0]*4
+    if isinstance(node, IdentifierType):
+        for name in node.names:
+            if name == 'int':
+                basiccount[0] += 1
+            elif name == 'float':
+                basiccount[1] += 1
+            elif name == 'char':
+                basiccount[2] += 1
+            elif name == 'double':
+                basiccount[3] += 1
+
+    for _, child in node.children():
+        bsccnt = extract_basic(child)
+        basiccount = [basiccount[i]+bsccnt[i] for i in range(0, len(basiccount))]
+    return basiccount
+
+
+def get_func(node):
+    """统计代码中所有被调用的函数名"""
+    funcs = set()
+    if isinstance(node, FuncCall) and node.name.name != 'scanf' and node.name.name != 'printf':
+        funcs.add(node.name.name)
+    for _, child in node.children():
+        funcs |= get_func(child)
+    return funcs
+
+
+# def get_basic(node):
+#     """统计代码中出现的所有基本类型"""
+#     basics = set([])
+#     if isinstance(node, IdentifierType):
+#         basics |= set(node.names)
+#     for _, child in node.children():
+#         basics |= get_basic(child)
+#     return basics
+
+
+# p5n50，相减，带上constant交叉验证[0.94783083 0.94750341 0.9481526], kaggle提交后有提升(0.53453->0.54748)
+# p5n50，相减，带上constant和循环分支type统计交叉验证[0.94870396 0.94875853 0.94924412]
+# p5n50，相减，带上constant和循环分支type统计和函数交集func交叉验证[0.95099591 0.95094134 0.95366479]
+# p5n50，相减，带上constant和循环分支type统计和函数交集func和基本类型数basic交叉验证[0.95126876 0.95214188 0.95284615]
+# p40n400，相减，带上constant和循环分支type统计和函数交集func和基本类型数basic交叉验证[0.96535211 0.96454689 0.96501736]，
+#   kaggle提交分数有提升(0.54968->0.60742)
+# p5n50，相减，带上constant和循环分支type统计和函数交集func加上basic交集统计交叉验证有下降
+# p5n50，相减，带上constant和循环分支type统计和函数交集func,100棵树交叉验证[0.9544884  0.95427012 0.95590242]
+# p10n100，相减，带上constant交叉验证[0.95181446 0.951322   0.95063851]，kaggle提交后有提升[0.54748->0.54859]
+# p40n400, 相减，带上constant交叉验证[0.95647013 0.95670178 0.95677652]，kaggle提交后有提升[0.54859->0.54968]
+# 再带上type交叉验证[0.9427558  0.94450205 0.94487802],kaggle提交之后只有0.54019
 def feature_extract(filename):
     """提取给定文件的特征向量"""
     # print(filename)
@@ -190,20 +256,20 @@ def feature_extract(filename):
         with open(name, 'rb') as f:
             ast = pickle.load(f)
         return extract_io(ast) + extract_text(ast) + [extract_iter(ast)]\
-            + extract_calc(ast) #+ [extract_constant(ast)]
+            + extract_calc(ast) + [extract_constant(ast)] + extract_type(ast) + extract_basic(ast), get_func(ast)
     else:
         raise Exception('ast not cached')
 
 
 def get_sample_feature(file1, file2):
     """生成文件对样本特征"""
-    f1 = feature_extract(file1)
-    f2 = feature_extract(file2)
-    return [abs(f1[i]-f2[i]) for i in range(len(f1))]
+    f1, fc1 = feature_extract(file1)
+    f2, fc2 = feature_extract(file2)
+    return [abs(f1[i]-f2[i]) for i in range(len(f1))] + [len(fc1 & fc2)]
 
 
 if __name__ == '__main__':
-    print(feature_extract('dataset/train/1a4d/0bd9a05fe6914906.txt'))
+    print(get_sample_feature('dataset/train/a98e/0bf3f6043f564c86.txt', 'dataset/train/a98e/2c715313d06340ea.txt'))
     # import profile
     # profile.run(
     #     "get_sample_feature('dataset/train/0ae1/0ade50fef00347e7.txt', 'dataset/train/1a4d/0bd9a05fe6914906.txt')")

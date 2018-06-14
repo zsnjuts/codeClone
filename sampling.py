@@ -29,7 +29,7 @@ def cache(path):
     return decorator
 
 
-@cache('dataset/train_filepairs_p5n50')
+@cache('dataset/train_filepairs_p40n400')
 def get_training_filepairs(posnumber, negnumber):
     """生成训练集的文件名对"""
     type_dirs = os.listdir('dataset/train')
@@ -63,7 +63,7 @@ def get_training_filepairs(posnumber, negnumber):
     return pos, neg
 
 
-@cache('dataset/train_dataset_p5n50')
+@cache('dataset/train_dataset_p40n400_const_type_func_basic')
 def get_training_samples(posnumber, negnumber):
     """生成训练样本"""
     pos, neg = get_training_filepairs(posnumber, negnumber)
@@ -94,7 +94,7 @@ def get_training_samples(posnumber, negnumber):
     return samples, labels
 
 
-@cache('dataset/test_samples')
+@cache('dataset/test_samples_const_type_func_basic')
 def get_test_samples():
     """获取test集中的所有样本"""
     fcsv = csv.reader(open('dataset/test_result.csv'))

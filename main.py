@@ -31,4 +31,4 @@ def visit(node):
 
 
 if __name__ == '__main__':
-    translate_to_c('dataset/train/5f10/3f4366724a1542ea.txt')
+    translate_to_c('dataset/train/a98e/0bf3f6043f564c86.txt')
